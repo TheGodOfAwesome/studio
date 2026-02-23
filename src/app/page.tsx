@@ -2,33 +2,56 @@
 
 import { useState } from "react";
 import { type PodcastHighlightIdentificationOutput } from "@/ai/flows/podcast-highlight-identification";
+import { generateHighlightsAction, getPodcastInfoFromRss } from "@/app/actions";
 import { Activity, Rss } from "lucide-react";
 import GenerateHighlightsForm from "@/components/generate-highlights-form";
 import HighlightsResult from "@/components/highlights-result";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type ActionResult = {
+type HighlightsActionResult = {
   success: boolean;
   data?: PodcastHighlightIdentificationOutput;
   error?: string;
 };
 
 export default function Home() {
-  const [result, setResult] = useState<ActionResult | null>(null);
+  const [result, setResult] = useState<HighlightsActionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFormSubmit = async (
-    action: () => Promise<ActionResult>,
-    audioUrl: string
+    data: { rssUrl: string; interests: string }
   ): Promise<void> => {
     setLoading(true);
     setResult(null);
+    setAudioUrl(null);
+    setError(null);
+
+    // 1. Get podcast info from RSS feed
+    const podcastInfoResult = await getPodcastInfoFromRss(data.rssUrl);
+
+    if (!podcastInfoResult.success || !podcastInfoResult.data) {
+      setError(podcastInfoResult.error ?? "Failed to get podcast info.");
+      setLoading(false);
+      return;
+    }
+
+    const { title, audioUrl } = podcastInfoResult.data;
     setAudioUrl(audioUrl);
-    const actionResult = await action();
+    
+    // 2. Generate highlights
+    const actionResult = await generateHighlightsAction(title, data.interests);
     setResult(actionResult);
+    
+    if(!actionResult.success) {
+      setError(actionResult.error ?? "An unknown error occurred while generating highlights.");
+    }
+
     setLoading(false);
   };
+
+  const currentError = error || result?.error;
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -73,10 +96,10 @@ export default function Home() {
               {result?.success && result.data && audioUrl && (
                 <HighlightsResult highlights={result.data} audioUrl={audioUrl} />
               )}
-              {result?.error && (
+              {currentError && (
                  <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 text-center text-destructive">
                    <p className="font-medium">An error occurred:</p>
-                   <p>{result.error}</p>
+                   <p>{currentError}</p>
                  </div>
               )}
             </div>
