@@ -33,14 +33,14 @@ const PodcastHighlightSchema = z.object({
     ),
   highlight_name: z.string().describe('A unique name for the highlight, e.g., "Highlight 1".'),
   hook_caption:
-    z.string().max(10, 'Hook caption must be 10 words or less.')
+    z.string().max(150, 'Hook caption must be 10 words or less.')
       .describe('A 10-word or less captivating caption for the highlight.'),
 });
 
 const PodcastTranscriptFilteringAndSummarizationOutputSchema = z.object({
   summary: z
     .string()
-    .describe('A summary of the podcast content that is relevant to the user\'s interests.'),
+    .describe("A summary of the podcast content that is relevant to the user's interests."),
   highlights: z
     .array(PodcastHighlightSchema)
     .describe(

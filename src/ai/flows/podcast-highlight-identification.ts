@@ -26,7 +26,7 @@ const PodcastHighlightIdentificationOutputSchema = z.array(z.object({
   start_time: z.string().describe('The start time of the engaging segment in the audio, matching the format from the transcript input (e.g., "00:01:23").'),
   end_time: z.string().describe('The end time of the engaging segment in the audio, matching the format from the transcript input (e.g., "00:01:45").'),
   highlight_name: z.string().describe('A unique name for the highlight, such as "highlight_1", "highlight_2", etc.'),
-  hook_caption: z.string().max(10).describe('A concise and engaging caption for the segment, no more than 10 words, designed to attract listeners.'),
+  hook_caption: z.string().max(150).describe('A concise and engaging caption for the segment, no more than 10 words, designed to attract listeners.'),
 })).max(5).describe('An array of up to 5 identified engaging podcast segments, ordered by perceived relevance/engagement.');
 export type PodcastHighlightIdentificationOutput = z.infer<typeof PodcastHighlightIdentificationOutputSchema>;
 
