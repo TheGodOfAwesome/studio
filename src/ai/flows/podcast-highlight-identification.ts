@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview Identifies the top 5 most engaging segments in a podcast transcript based on user interests.
+ * @fileOverview Identifies the top 10 most engaging segments in a podcast transcript based on user interests.
  *
  * - podcastHighlightIdentification - A function that handles the podcast highlight identification process.
  * - PodcastHighlightIdentificationInput - The input type for the podcastHighlightIdentification function.
@@ -12,6 +12,7 @@ import {z} from 'genkit';
 
 // Input Schema
 const PodcastHighlightIdentificationInputSchema = z.object({
+  podcastTitle: z.string().describe('The title of the podcast episode.'),
   transcript: z.array(z.object({
     text: z.string().describe('The transcribed text of a segment.'),
     startTime: z.string().describe('The start time of the segment in the audio, e.g., "00:01:23".'),
@@ -25,9 +26,9 @@ export type PodcastHighlightIdentificationInput = z.infer<typeof PodcastHighligh
 const PodcastHighlightIdentificationOutputSchema = z.array(z.object({
   start_time: z.string().describe('The start time of the engaging segment in the audio, matching the format from the transcript input (e.g., "00:01:23").'),
   end_time: z.string().describe('The end time of the engaging segment in the audio, matching the format from the transcript input (e.g., "00:01:45").'),
-  highlight_name: z.string().describe('A unique name for the highlight, such as "highlight_1", "highlight_2", etc.'),
-  hook_caption: z.string().max(150).describe('A concise and engaging caption for the segment, no more than 10 words, designed to attract listeners.'),
-})).max(5).describe('An array of up to 5 identified engaging podcast segments, ordered by perceived relevance/engagement.');
+  highlight_name: z.string().describe('A unique name for the highlight, in the format "Highlight N - <Podcast Title>", e.g., "Highlight 1 - Startup Realities".'),
+  hook_caption: z.string().max(150).describe('A concise and engaging caption for the segment, no more than 15 words, designed to attract listeners.'),
+})).max(10).describe('An array of up to 10 identified engaging podcast segments, ordered by perceived relevance/engagement.');
 export type PodcastHighlightIdentificationOutput = z.infer<typeof PodcastHighlightIdentificationOutputSchema>;
 
 // Wrapper function for the flow
@@ -40,21 +41,22 @@ const podcastHighlightPrompt = ai.definePrompt({
   name: 'podcastHighlightPrompt',
   input: { schema: PodcastHighlightIdentificationInputSchema },
   output: { schema: PodcastHighlightIdentificationOutputSchema },
-  prompt: `You are an expert podcast analyst. Your task is to identify the top 5 most engaging and coherent segments from the provided podcast transcript that are relevant to the user's interests.
+  prompt: `You are an expert podcast analyst. Your task is to identify up to 10 of the most engaging and coherent segments from the provided podcast transcript that are relevant to the user's interests.
 
-Each identified highlight should represent a complete thought, anecdote, or story. To achieve this, you should combine consecutive transcript segments. A good highlight is typically between 30 and 90 seconds. Avoid creating very short or fragmented clips.
+Each identified highlight should represent a complete thought, anecdote, or story. To achieve this, you should combine consecutive transcript segments. A good highlight is typically between 2 and 4 minutes (120-240 seconds), with an average of around 3 minutes. Avoid creating clips that are too short or fragmented.
 
 For each highlight, provide:
 1.  The \`start_time\` from the first segment of the highlight.
 2.  The \`end_time\` from the last segment of the highlight.
-3.  A unique \`highlight_name\` (e.g., "highlight_1").
-4.  A concise and compelling \`hook_caption\` (10 words or less) to attract listeners.
+3.  A unique \`highlight_name\` using the format "Highlight <number> - {{podcastTitle}}".
+4.  A concise and compelling \`hook_caption\` (15 words or less) to attract listeners.
 
 Strictly adhere to the following rules:
 -   Ensure the identified segments are continuous and make sense as a standalone clip.
 -   The "start_time" and "end_time" must precisely match the timestamps from the provided transcript segments.
 -   The output must be a JSON array of objects, strictly conforming to the output schema provided.
 
+Podcast Title: {{podcastTitle}}
 User Interests:
 {{#each interests}}
 - {{this}}

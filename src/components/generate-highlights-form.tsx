@@ -17,10 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateHighlightsAction } from "@/app/actions";
-import { List, Loader2, Rss, Sparkles } from "lucide-react";
+import { List, Loader2, Mic, Rss, Sparkles } from "lucide-react";
 
 const formSchema = z.object({
   rssUrl: z.string().url({ message: "Please enter a valid RSS feed URL." }),
+  podcastTitle: z.string().min(1, { message: "Please enter the podcast title." }),
   interests: z.string().min(1, { message: "Please provide your interests." }).refine((val) => {
     try {
       const parsed = JSON.parse(val);
@@ -41,12 +42,13 @@ export default function GenerateHighlightsForm({ onSubmit, loading }: GenerateHi
     resolver: zodResolver(formSchema),
     defaultValues: {
       rssUrl: "",
+      podcastTitle: "Startup Realities",
       interests: '["AI in business", "venture capital", "startup growth"]',
     },
   });
 
   function onFormSubmit(values: z.infer<typeof formSchema>) {
-    onSubmit(() => generateHighlightsAction(values.interests));
+    onSubmit(() => generateHighlightsAction(values.podcastTitle, values.interests));
   }
 
   return (
@@ -68,6 +70,19 @@ export default function GenerateHighlightsForm({ onSubmit, loading }: GenerateHi
                   <FormLabel className="flex items-center gap-1.5"><Rss className="h-4 w-4" />RSS Feed URL</FormLabel>
                   <FormControl>
                     <Input placeholder="https://feeds.simplecast.com/your-podcast" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="podcastTitle"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1.5"><Mic className="h-4 w-4" />Podcast Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Startup Realities" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

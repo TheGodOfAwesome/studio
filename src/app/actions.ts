@@ -11,6 +11,7 @@ import { z } from "zod";
 const interestsSchema = z.array(z.string());
 
 export async function generateHighlightsAction(
+  podcastTitle: string,
   interestsJson: string
 ): Promise<{ success: boolean; data?: PodcastHighlightIdentificationOutput; error?: string }> {
   try {
@@ -31,6 +32,7 @@ export async function generateHighlightsAction(
     // In a real app, this would involve fetching RSS, downloading audio, and transcribing.
     // Here, we use a mock transcript.
     const aiInput: PodcastHighlightIdentificationInput = {
+      podcastTitle,
       transcript: mockTranscript,
       interests: interests,
     };
