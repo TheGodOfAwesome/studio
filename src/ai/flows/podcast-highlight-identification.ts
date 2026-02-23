@@ -41,33 +41,8 @@ const podcastHighlightPrompt = ai.definePrompt({
   name: 'podcastHighlightPrompt',
   input: { schema: PodcastHighlightIdentificationInputSchema },
   output: { schema: PodcastHighlightIdentificationOutputSchema },
-  prompt: `You are an expert podcast analyst. Your task is to identify between 5 and 10 of the most engaging and coherent segments from the provided podcast transcript that are relevant to the user's interests.
-
-Each identified highlight should represent a complete thought, anecdote, or story. To achieve this, you should combine consecutive transcript segments. A good highlight is typically between 2 and 4 minutes (120-240 seconds), with an average of around 3 minutes. Avoid creating clips that are too short or fragmented.
-
-For each highlight, provide:
-1.  The \`start_time\` from the first segment of the highlight.
-2.  The \`end_time\` from the last segment of the highlight.
-3.  A unique \`highlight_name\` using the format "Highlight <number> - {{podcastTitle}}".
-4.  A concise and compelling \`hook_caption\` (15 words or less) to attract listeners.
-
-Strictly adhere to the following rules:
--   Ensure the identified segments are continuous and make sense as a standalone clip.
--   The "start_time" and "end_time" must precisely match the timestamps from the provided transcript segments.
--   The output must be a JSON array of objects, strictly conforming to the output schema provided.
-
-Podcast Title: {{podcastTitle}}
-User Interests:
-{{#each interests}}
-- {{this}}
-{{/each}}
-
-Podcast Transcript Segments (format: START_TIME-END_TIME: TEXT):
-{{#each transcript}}
-{{startTime}}-{{endTime}}: {{text}}
-{{/each}}
-
-Please provide the output in JSON format.`
+  prompt: 
+  'You are an expert podcast analyst and storyteller. Your task is to identify between 5 and 10 of the most engaging and coherent segments from the provided podcast transcript that are relevant to the user\'s interests.\n\n## Your Process (follow these steps in order)\n\n**Step 1 - Read the full transcript first.**\nBefore selecting anything, read all segments to understand the full arc of the conversation.\n\n**Step 2 - Identify complete stories, anecdotes, or thoughts.**\nA valid highlight must have ALL THREE of the following:\n- A clear **opening** (a question is asked, a topic is introduced, a story begins)\n- A clear **development** (the speaker elaborates, gives examples, builds tension)\n- A clear **resolution** (a conclusion, punchline, lesson, or natural pause in the topic)\n\nDo NOT select a segment that starts or ends in the middle of a thought. If someone is mid-sentence or mid-story at the boundary of a segment, extend the highlight until the thought is complete.\n\n**Step 3 - Merge consecutive segments.**\nHighlights should be formed by combining multiple consecutive transcript segments. A good highlight is typically 120–240 seconds but can be longer if necessary with a maximum of 300 seconds. Never select isolated single segments.\n\n**Step 4 - Filter by user interests.**\nFrom your identified complete stories, select those most relevant to the user\'s interests listed below.\n\n## Strict Rules\n- `start_time` must be the timestamp where the *topic or story genuinely begins*, not just where a keyword appears.\n- `end_time` must be the timestamp where the *thought is fully resolved*, not cut off mid-idea.\n- Highlights must not overlap.\n- The output must be a JSON array conforming to the output schema.\n\n---\n\nPodcast Title: {{podcastTitle}}\n\nUser Interests:\n{{#each interests}}\n- {{this}}\n{{/each}}\n\nPodcast Transcript Segments (format: START_TIME-END_TIME: TEXT):\n{{#each transcript}}\n{{startTime}}-{{endTime}}: {{text}}\n{{/each}}\n\nThink through your reasoning before producing the final JSON output. Then provide the output in JSON format.'
 });
 
 // Genkit Flow Definition
