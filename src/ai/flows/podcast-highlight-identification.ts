@@ -40,7 +40,32 @@ const podcastHighlightPrompt = ai.definePrompt({
   name: 'podcastHighlightPrompt',
   input: { schema: PodcastHighlightIdentificationInputSchema },
   output: { schema: PodcastHighlightIdentificationOutputSchema },
-  prompt: `You are an expert podcast analyst. Your task is to identify the top 5 most engaging segments from the provided podcast transcript, based on the user's interests. For each identified segment, you must provide its original start time, end time, a unique highlight name (e.g., "highlight_1", "highlight_2"), and a concise hook caption (maximum 10 words) that clearly describes why it's engaging and relevant given the specified interests.\n\nStrictly adhere to the following rules:\n1.  Identify exactly 5 distinct highlights if sufficient engaging content is found. If not, provide fewer, but only truly engaging ones.\n2.  The "hook_caption" must be 10 words or less.\n3.  Ensure the "start_time" and "end_time" precisely match the timestamps provided in the transcript for the selected segment.\n4.  The output must be a JSON array of objects, strictly conforming to the output schema provided.\n\nUser Interests:\n{{#each interests}}\n- {{this}}\n{{/each}}\n\nPodcast Transcript Segments (format: START_TIME-END_TIME: TEXT):\n{{#each transcript}}\n{{startTime}}-{{endTime}}: {{text}}\n{{/each}}\n\nPlease provide the output in JSON format.`
+  prompt: `You are an expert podcast analyst. Your task is to identify the top 5 most engaging and coherent segments from the provided podcast transcript that are relevant to the user's interests.
+
+Each identified highlight should represent a complete thought, anecdote, or story. To achieve this, you should combine consecutive transcript segments. A good highlight is typically between 30 and 90 seconds. Avoid creating very short or fragmented clips.
+
+For each highlight, provide:
+1.  The \`start_time\` from the first segment of the highlight.
+2.  The \`end_time\` from the last segment of the highlight.
+3.  A unique \`highlight_name\` (e.g., "highlight_1").
+4.  A concise and compelling \`hook_caption\` (10 words or less) to attract listeners.
+
+Strictly adhere to the following rules:
+-   Ensure the identified segments are continuous and make sense as a standalone clip.
+-   The "start_time" and "end_time" must precisely match the timestamps from the provided transcript segments.
+-   The output must be a JSON array of objects, strictly conforming to the output schema provided.
+
+User Interests:
+{{#each interests}}
+- {{this}}
+{{/each}}
+
+Podcast Transcript Segments (format: START_TIME-END_TIME: TEXT):
+{{#each transcript}}
+{{startTime}}-{{endTime}}: {{text}}
+{{/each}}
+
+Please provide the output in JSON format.`
 });
 
 // Genkit Flow Definition
