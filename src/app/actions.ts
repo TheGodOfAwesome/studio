@@ -47,6 +47,8 @@ export async function generateHighlightsAction(
   } catch (error) {
     console.error("AI flow error:", error);
     // It's good practice to not expose raw error messages to the client.
-    return { success: false, error: "An unexpected error occurred while generating highlights." };
+    // return { success: false, error: "An unexpected error occurred while generating highlights." };
+    return { success: false, error: JSON.stringify(error) as string };
+    // return { success: false, error: error };
   }
 }
