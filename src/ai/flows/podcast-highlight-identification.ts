@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview Identifies the top 10 most engaging segments in a podcast transcript based on user interests.
+ * @fileOverview Identifies 5 to 10 of the most engaging segments in a podcast transcript based on user interests.
  *
  * - podcastHighlightIdentification - A function that handles the podcast highlight identification process.
  * - PodcastHighlightIdentificationInput - The input type for the podcastHighlightIdentification function.
@@ -28,7 +28,7 @@ const PodcastHighlightIdentificationOutputSchema = z.array(z.object({
   end_time: z.string().describe('The end time of the engaging segment in the audio, matching the format from the transcript input (e.g., "00:01:45").'),
   highlight_name: z.string().describe('A unique name for the highlight, in the format "Highlight N - <Podcast Title>", e.g., "Highlight 1 - Startup Realities".'),
   hook_caption: z.string().max(150).describe('A concise and engaging caption for the segment, no more than 15 words, designed to attract listeners.'),
-})).max(10).describe('An array of up to 10 identified engaging podcast segments, ordered by perceived relevance/engagement.');
+})).min(5).max(10).describe('An array of 5 to 10 identified engaging podcast segments, ordered by perceived relevance/engagement.');
 export type PodcastHighlightIdentificationOutput = z.infer<typeof PodcastHighlightIdentificationOutputSchema>;
 
 // Wrapper function for the flow
@@ -41,7 +41,7 @@ const podcastHighlightPrompt = ai.definePrompt({
   name: 'podcastHighlightPrompt',
   input: { schema: PodcastHighlightIdentificationInputSchema },
   output: { schema: PodcastHighlightIdentificationOutputSchema },
-  prompt: `You are an expert podcast analyst. Your task is to identify up to 10 of the most engaging and coherent segments from the provided podcast transcript that are relevant to the user's interests.
+  prompt: `You are an expert podcast analyst. Your task is to identify between 5 and 10 of the most engaging and coherent segments from the provided podcast transcript that are relevant to the user's interests.
 
 Each identified highlight should represent a complete thought, anecdote, or story. To achieve this, you should combine consecutive transcript segments. A good highlight is typically between 2 and 4 minutes (120-240 seconds), with an average of around 3 minutes. Avoid creating clips that are too short or fragmented.
 
