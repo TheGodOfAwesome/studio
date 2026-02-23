@@ -16,12 +16,15 @@ type ActionResult = {
 export default function Home() {
   const [result, setResult] = useState<ActionResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   const handleFormSubmit = async (
-    action: () => Promise<ActionResult>
+    action: () => Promise<ActionResult>,
+    audioUrl: string
   ): Promise<void> => {
     setLoading(true);
     setResult(null);
+    setAudioUrl(audioUrl);
     const actionResult = await action();
     setResult(actionResult);
     setLoading(false);
@@ -67,8 +70,8 @@ export default function Home() {
                   <Skeleton className="h-28 w-full" />
                 </div>
               )}
-              {result?.success && result.data && (
-                <HighlightsResult highlights={result.data} />
+              {result?.success && result.data && audioUrl && (
+                <HighlightsResult highlights={result.data} audioUrl={audioUrl} />
               )}
               {result?.error && (
                  <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 text-center text-destructive">

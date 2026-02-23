@@ -1,19 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { type PodcastHighlightIdentificationOutput } from "@/ai/flows/podcast-highlight-identification";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Clock, Copy, Quote } from "lucide-react";
+import { Check, Clock, Copy, Quote, Play, Pause } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type HighlightsResultProps = {
   highlights: PodcastHighlightIdentificationOutput;
+  audioUrl: string;
 };
 
-export default function HighlightsResult({ highlights }: HighlightsResultProps) {
+export default function HighlightsResult({ highlights, audioUrl }: HighlightsResultProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [activeHighlight, setActiveHighlight] = useState<{ index: number; isPlaying: boolean } | null>(null);
+
+  const timeToSeconds = (time: string): number => {
+    const parts = time.split(':').map(Number);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+    if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    }
+    return parts[0] || 0;
+  };
+
+  const handlePlay = (index: number) => {
+    if (!audioRef.current) return;
+
+    const highlight = highlights[index];
+    const startTime = timeToSeconds(highlight.start_time);
+
+    if (activeHighlight?.index === index && activeHighlight.isPlaying) {
+      audioRef.current.pause();
+      setActiveHighlight({ index, isPlaying: false });
+      return;
+    }
+    
+    if (activeHighlight?.isPlaying && audioRef.current) {
+        audioRef.current.pause();
+    }
+
+    audioRef.current.currentTime = startTime;
+    audioRef.current.play().catch(e => console.error("Playback failed", e));
+    setActiveHighlight({ index, isPlaying: true });
+  };
+
+  const handleTimeUpdate = () => {
+    if (!audioRef.current || !activeHighlight || !activeHighlight.isPlaying) return;
+
+    const highlight = highlights[activeHighlight.index];
+    const endTime = timeToSeconds(highlight.end_time);
+
+    if (audioRef.current.currentTime >= endTime) {
+      audioRef.current.pause();
+      setActiveHighlight({ index: activeHighlight.index, isPlaying: false });
+    }
+  };
+  
+  const handleAudioEnded = () => {
+    if(activeHighlight) {
+        setActiveHighlight({ ...activeHighlight, isPlaying: false });
+    }
+  };
 
   const copyToClipboard = () => {
     const jsonString = JSON.stringify(highlights, null, 2);
@@ -42,6 +95,14 @@ export default function HighlightsResult({ highlights }: HighlightsResultProps) 
 
   return (
     <div className="space-y-6">
+       <audio 
+        ref={audioRef} 
+        src={audioUrl} 
+        onTimeUpdate={handleTimeUpdate} 
+        onEnded={handleAudioEnded}
+        className="hidden" 
+        preload="auto"
+      />
        <div className="flex justify-between items-center">
         <h3 className="text-2xl font-bold font-headline">AI-Generated Highlights</h3>
         <Button variant="outline" onClick={copyToClipboard}>
@@ -67,13 +128,20 @@ export default function HighlightsResult({ highlights }: HighlightsResultProps) 
                 </div>
               </CardTitle>
             </CardHeader>
-            <CardFooter className="bg-muted/50 px-6 py-3">
+            <CardFooter className="bg-muted/50 px-6 py-3 flex items-center justify-between">
               <div className="flex items-center text-sm text-muted-foreground gap-2">
                 <Clock className="h-4 w-4" />
                 <span>
                   <span className="font-semibold">{highlight.start_time}</span> – <span className="font-semibold">{highlight.end_time}</span>
                 </span>
               </div>
+              <Button variant="ghost" size="icon" onClick={() => handlePlay(index)} aria-label={`Play highlight ${index + 1}`}>
+                {activeHighlight?.index === index && activeHighlight.isPlaying ? (
+                    <Pause className="h-5 w-5" />
+                ) : (
+                    <Play className="h-5 w-5" />
+                )}
+            </Button>
             </CardFooter>
           </Card>
         ))}

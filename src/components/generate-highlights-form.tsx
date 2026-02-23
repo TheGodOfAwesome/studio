@@ -17,11 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateHighlightsAction } from "@/app/actions";
-import { List, Loader2, Mic, Rss, Sparkles } from "lucide-react";
+import { Link, List, Loader2, Mic, Rss, Sparkles } from "lucide-react";
 
 const formSchema = z.object({
   rssUrl: z.string().url({ message: "Please enter a valid RSS feed URL." }),
   podcastTitle: z.string().min(1, { message: "Please enter the podcast title." }),
+  audioUrl: z.string().url({ message: "Please enter a valid audio URL." }),
   interests: z.string().min(1, { message: "Please provide your interests." }).refine((val) => {
     try {
       const parsed = JSON.parse(val);
@@ -33,7 +34,7 @@ const formSchema = z.object({
 });
 
 type GenerateHighlightsFormProps = {
-  onSubmit: (action: () => Promise<any>) => Promise<void>;
+  onSubmit: (action: () => Promise<any>, audioUrl: string) => Promise<void>;
   loading: boolean;
 };
 
@@ -43,12 +44,13 @@ export default function GenerateHighlightsForm({ onSubmit, loading }: GenerateHi
     defaultValues: {
       rssUrl: "",
       podcastTitle: "Startup Realities",
+      audioUrl: "https://storage.googleapis.com/pedagogical-bucket/sample-podcast.mp3",
       interests: '["AI in business", "venture capital", "startup growth"]',
     },
   });
 
   function onFormSubmit(values: z.infer<typeof formSchema>) {
-    onSubmit(() => generateHighlightsAction(values.podcastTitle, values.interests));
+    onSubmit(() => generateHighlightsAction(values.podcastTitle, values.interests), values.audioUrl);
   }
 
   return (
@@ -83,6 +85,19 @@ export default function GenerateHighlightsForm({ onSubmit, loading }: GenerateHi
                   <FormLabel className="flex items-center gap-1.5"><Mic className="h-4 w-4" />Podcast Title</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g. Startup Realities" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="audioUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1.5"><Link className="h-4 w-4" />Audio File URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://example.com/podcast.mp3" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
