@@ -51,7 +51,7 @@ Identify the best highlight segments based first on a provided list of "User Int
 2. **Length Constraints:** Highlights should be as long as necessary to capture the full arc, but must strictly remain under a 9-minute maximum limit per segment.
 3. **Quantity:** Aim for an average of 5 highlights. Let the actual number of high-quality moments dictate the final count, but absolutely do not exceed 7 highlights.
 4. **Prioritization:** Always prioritize segments that align with the "User Interests". Use general impactful anecdotes only as a fallback.
-5. **Hook Caption:** Write a punchy, clickbaity, and curiosity-driven hook (3 to 8 words) that makes the listener desperate to hear the segment (e.g., "The dark truth behind Think and Grow Rich" instead of "History of Napoleon Hill").
+5. **Hook Caption:** Write a punchy, clickbaity, and curiosity-driven hook (6 - 10 words) that makes the listener desperate to hear the segment (e.g., "The dark truth behind Think and Grow Rich" instead of "History of Napoleon Hill").
 6. **Highlight Naming:** Follow the format exactly: "Highlight [Number] - [Podcast Title]".
 
 ### Inputs
