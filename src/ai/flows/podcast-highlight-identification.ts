@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview Identifies 5 to 10 of the most engaging segments in a podcast transcript based on user interests.
+ * @fileOverview Identifies 1 to 7 of the most engaging segments in a podcast transcript based on user interests.
  *
  * - podcastHighlightIdentification - A function that handles the podcast highlight identification process.
  * - PodcastHighlightIdentificationInput - The input type for the podcastHighlightIdentification function.
@@ -26,9 +26,9 @@ export type PodcastHighlightIdentificationInput = z.infer<typeof PodcastHighligh
 const PodcastHighlightIdentificationOutputSchema = z.array(z.object({
   start_time: z.string().describe('The start time of the engaging segment in the audio, matching the format from the transcript input (e.g., "00:01:23").'),
   end_time: z.string().describe('The end time of the engaging segment in the audio, matching the format from the transcript input (e.g., "00:01:45").'),
-  highlight_name: z.string().describe('A unique name for the highlight, in the format "Highlight N - <Podcast Title>", e.g., "Highlight 1 - Startup Realities".'),
-  hook_caption: z.string().max(150).describe('A concise and engaging caption for the segment, no more than 15 words, designed to attract listeners.'),
-})).min(5).max(10).describe('An array of 5 to 10 identified engaging podcast segments, ordered by perceived relevance/engagement.');
+  highlight_name: z.string().describe('A unique name for the highlight, in the format "Highlight [Number] - <Podcast Title>", e.g., "Highlight 1 - Startup Realities".'),
+  hook_caption: z.string().max(100).describe('A punchy, clickbaity, and curiosity-driven hook (3 to 8 words) that makes the listener desperate to hear the segment.'),
+})).min(1).max(7).describe('An array of 1 to 7 identified engaging podcast segments, ordered by perceived relevance/engagement.');
 export type PodcastHighlightIdentificationOutput = z.infer<typeof PodcastHighlightIdentificationOutputSchema>;
 
 // Wrapper function for the flow
@@ -41,8 +41,32 @@ const podcastHighlightPrompt = ai.definePrompt({
   name: 'podcastHighlightPrompt',
   input: { schema: PodcastHighlightIdentificationInputSchema },
   output: { schema: PodcastHighlightIdentificationOutputSchema },
-  prompt: 
-  'You are an expert podcast editor with years of experience creating viral clips. Your task is to identify between 5 and 10 highlights from the provided podcast transcript that are relevant to the user\'s interests.\n\n## CRITICAL: Read Everything First\nBefore doing anything else, read the ENTIRE transcript from start to finish. You must understand the full conversation before selecting any highlights. Do not start selecting until you have read every single segment.\n\n## Step 1 - Map the Conversation Into Topics\nAfter reading the full transcript, mentally divide the conversation into its major topics or segments. A new topic begins when the speakers shift to a clearly different subject. Write out these topics in your reasoning before proceeding.\n\n## Step 2 - Identify Candidate Highlights\nFor each major topic, ask yourself:\n- Where does this topic ACTUALLY begin? (not where a keyword appears, but where the speaker first sets up the context or question)\n- Where does this topic ACTUALLY end? (the last sentence of the conclusion, not the first sentence of a new topic)\n- Is this a COMPLETE story? It must have: a setup, a body, and a clear ending. If any of these are missing, expand the boundaries until they are present.\n\n## Step 3 - Validate Each Highlight With These Checks\nBefore finalizing any highlight, verify ALL of the following:\n[ ] The clip starts at the very beginning of a complete sentence — never mid-sentence or mid-thought.\n[ ] The clip ends at the very end of a complete sentence — never mid-sentence or mid-thought.\n[ ] The last line of the clip feels like a natural stopping point (a conclusion, a punchline, a lesson learned, or a clear pause in the topic).\n[ ] The clip contains at minimum 10 consecutive transcript segments.\n[ ] The duration is between 120 and 300 seconds. If it is below 120 seconds, you MUST expand it by including the segments immediately before or after.\n[ ] If you cut the clip and played it to someone with no context, would it feel complete and satisfying? If not, expand it.\n\n## Step 4 - Select the Best Highlights\nFrom your validated candidates, select those most relevant to the user\'s interests below.\n\n## Absolute Rules\n- A clip that cuts off a speaker mid-sentence is invalid. Discard it and re-select.\n- A clip that starts mid-story without proper setup is invalid. Discard it and re-select.\n- Never select a clip shorter than 120 seconds.\n- Highlights must not overlap.\n- `start_time` and `end_time` must exactly match timestamps from the transcript.\n- Output must be a JSON array conforming to the output schema.\n\n---\n\nPodcast Title: {{podcastTitle}}\n\nUser Interests:\n{{#each interests}}\n- {{this}}\n{{/each}}\n\nPodcast Transcript Segments (format: START_TIME-END_TIME: TEXT):\n{{#each transcript}}\n{{startTime}}-{{endTime}}: {{text}}\n{{/each}}\n\nFirst, write out your topic map and reasoning for each highlight selection. Then provide the final output as a JSON array.'
+  prompt: `You are an expert podcast producer and content curator. Your task is to analyze a timestamped podcast transcript and extract the most compelling, highly impactful segments.
+
+### Objective
+Identify the best highlight segments based first on a provided list of "User Interests". If the transcript does not contain enough content matching these interests, fill the remaining quota by identifying the best general insights, observations, anecdotes, philosophies, mental models, frameworks, and stories.
+
+### Rules for Extraction
+1. **Contextual Completeness (Crucial):** Ensure the start and end times capture the complete arc of a thought, story, or framework. Do not start mid-sentence or end before the final payoff/conclusion of the narrative. The \`start_time\` and \`end_time\` must exactly match timestamps from the provided transcript segments.
+2. **Length Constraints:** Highlights should be as long as necessary to capture the full arc, but must strictly remain under a 9-minute maximum limit per segment.
+3. **Quantity:** Aim for an average of 5 highlights. Let the actual number of high-quality moments dictate the final count, but absolutely do not exceed 7 highlights.
+4. **Prioritization:** Always prioritize segments that align with the "User Interests". Use general impactful anecdotes only as a fallback.
+5. **Hook Caption:** Write a punchy, clickbaity, and curiosity-driven hook (3 to 8 words) that makes the listener desperate to hear the segment (e.g., "The dark truth behind Think and Grow Rich" instead of "History of Napoleon Hill").
+6. **Highlight Naming:** Follow the format exactly: "Highlight [Number] - [Podcast Title]".
+
+### Inputs
+- **Podcast Title:** {{podcastTitle}}
+- **User Interests:**
+{{#each interests}}
+- {{this}}
+{{/each}}
+- **Transcript (format: START_TIME-END_TIME: TEXT):**
+{{#each transcript}}
+{{startTime}}-{{endTime}}: {{text}}
+{{/each}}
+
+### Output Format
+Respond ONLY with a valid, raw JSON array of highlight objects matching the output schema. Do not include introductory text, conversational filler, or markdown blocks (like \`\`\`json).`,
 });
 
 // Genkit Flow Definition
