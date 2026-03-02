@@ -41,7 +41,7 @@ export default function Home() {
     setAudioUrl(audioUrl);
     
     // 2. Generate highlights
-    const actionResult = await generateHighlightsAction(title, data.interests);
+    const actionResult = await generateHighlightsAction(title, audioUrl, data.interests);
     setResult(actionResult);
     
     if(!actionResult.success) {
@@ -88,6 +88,9 @@ export default function Home() {
               {loading && (
                 <div className="space-y-4">
                   <h3 className="text-2xl font-bold font-headline text-center">Generating Highlights...</h3>
+                  <p className="text-muted-foreground text-center">
+                    This can take a few minutes for longer episodes as we transcribe the audio.
+                  </p>
                   <Skeleton className="h-28 w-full" />
                   <Skeleton className="h-28 w-full" />
                   <Skeleton className="h-28 w-full" />

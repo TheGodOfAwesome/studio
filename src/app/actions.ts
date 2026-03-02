@@ -3,11 +3,14 @@
 import {
   podcastHighlightIdentification,
   type PodcastHighlightIdentificationInput,
-  type PodcastHighlightIdentificationOutput
+  type PodcastHighlightIdentificationOutput,
 } from "@/ai/flows/podcast-highlight-identification";
-import { mockTranscript } from "@/lib/placeholder-data";
+import { transcribePodcast } from "@/ai/flows/podcast-transcription";
+import { storage } from "@/lib/firebase";
+import { ref, uploadBytes, deleteObject } from "firebase/storage";
 import { z } from "zod";
 import Parser from 'rss-parser';
+import { v4 as uuidv4 } from 'uuid';
 
 const interestsSchema = z.array(z.string());
 const rssUrlSchema = z.string().url();
@@ -53,12 +56,11 @@ export async function getPodcastInfoFromRss(
 
 export async function generateHighlightsAction(
   podcastTitle: string,
+  audioUrl: string,
   interestsJson: string
 ): Promise<{ success: boolean; data?: PodcastHighlightIdentificationOutput; error?: string }> {
+  let storageRef;
   try {
-    // Add a small delay to simulate network latency and show loading state
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
     // 1. Parse and validate interests
     let interests: string[];
     try {
@@ -69,29 +71,55 @@ export async function generateHighlightsAction(
       return { success: false, error: "Invalid JSON format for interests. Please provide an array of strings." };
     }
 
-    // 2. Prepare input for the AI flow
-    // In a real app, this would involve fetching RSS, downloading audio, and transcribing.
-    // Here, we use a mock transcript.
+    // 2. Download audio and upload to Firebase Storage
+    const response = await fetch(audioUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio: ${response.statusText}`);
+    }
+    const audioBuffer = await response.arrayBuffer();
+    const fileExtension = audioUrl.split('.').pop()?.split('?')[0] || 'mp3';
+    const fileName = `uploads/${uuidv4()}.${fileExtension}`;
+    storageRef = ref(storage, fileName);
+    
+    // Note: This uploads the entire file at once. For very large files, a streaming upload
+    // might be necessary to avoid memory issues on the server.
+    await uploadBytes(storageRef, audioBuffer, { contentType: response.headers.get('content-type') || 'audio/mpeg' });
+    
+    // 3. Create GS URI and transcribe audio
+    const gsUri = `gs://${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/${fileName}`;
+    const transcript = await transcribePodcast({ gsUri });
+
+    if (!transcript || transcript.length === 0) {
+      return { success: false, error: "Audio transcription failed or returned an empty transcript." };
+    }
+
+    // 4. Prepare input for the highlight identification flow
     const aiInput: PodcastHighlightIdentificationInput = {
       podcastTitle,
-      transcript: mockTranscript,
+      transcript: transcript,
       interests: interests,
     };
 
-    // 3. Call the AI flow
+    // 5. Call the highlight identification flow
     const highlights = await podcastHighlightIdentification(aiInput);
 
     if (!highlights) {
-       return { success: false, error: "The AI model did not return a valid response." };
+       return { success: false, error: "The AI model did not return a valid response for highlight generation." };
     }
-
-    // 4. Return the successful result
+    
+    // 6. Return the successful result
     return { success: true, data: highlights };
   } catch (error) {
     console.error("AI flow error:", error);
-    // It's good practice to not expose raw error messages to the client.
-    // return { success: false, error: "An unexpected error occurred while generating highlights." };
-    return { success: false, error: JSON.stringify(error) as string };
-    // return { success: false, error: error };
+    return { success: false, error: "An unexpected error occurred while generating highlights." };
+  } finally {
+    // 7. Clean up the uploaded file from storage
+    if (storageRef) {
+      try {
+        await deleteObject(storageRef);
+      } catch (cleanupError) {
+        console.error("Failed to cleanup audio file from storage:", cleanupError);
+      }
+    }
   }
 }
