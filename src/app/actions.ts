@@ -86,11 +86,12 @@ export async function generateHighlightsAction(
   try {
     // 1. Get podcast metadata from the RSS feed.
     const feed = await parser.parseURL(rssUrl);
+    const podcastTitle = feed.title!;
     const latestEpisode = feed.items[0];
     const podcastUrl = latestEpisode?.enclosure?.url;
-    const podcastTitle = latestEpisode?.title;
+    const episodeTitle = latestEpisode?.title!;
 
-    if (!podcastUrl || !podcastTitle) {
+    if (!podcastUrl || !episodeTitle) {
       return {
         success: false,
         error: "Could not find an audio URL or title in the RSS feed.",
@@ -131,6 +132,7 @@ export async function generateHighlightsAction(
     // 4. Run the AI flow to identify highlights.
     const llmResponse = await podcastHighlightIdentification({
         podcastTitle: podcastTitle,
+        episodeTitle: episodeTitle,
         transcript: transcriptForAI,
         interests: interests,
     });
