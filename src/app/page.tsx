@@ -12,6 +12,7 @@ type HighlightsActionResult = {
   success: boolean;
   data?: PodcastHighlightIdentificationOutput;
   error?: string;
+  details?: any;
 };
 
 export default function Home() {
@@ -19,6 +20,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<any | null>(null);
 
   const handleFormSubmit = async (
     data: { rssUrl: string; interests: string }
@@ -27,28 +29,36 @@ export default function Home() {
     setResult(null);
     setAudioUrl(null);
     setError(null);
+    setErrorDetails(null);
 
-    // 1. Get podcast info from RSS feed
-    const podcastInfoResult = await getPodcastInfoFromRss(data.rssUrl);
+    try {
+      const interestsArray = JSON.parse(data.interests);
+      
+      const podcastInfoResult = await getPodcastInfoFromRss(data.rssUrl);
+      if (!podcastInfoResult.success || !podcastInfoResult.data) {
+        setError(podcastInfoResult.error ?? "Failed to get podcast info.");
+        setLoading(false);
+        return;
+      }
+      setAudioUrl(podcastInfoResult.data.audioUrl);
 
-    if (!podcastInfoResult.success || !podcastInfoResult.data) {
-      setError(podcastInfoResult.error ?? "Failed to get podcast info.");
-      setLoading(false);
-      return;
+      const actionResult = await generateHighlightsAction(data.rssUrl, interestsArray);
+      setResult(actionResult);
+      
+      if(!actionResult.success) {
+        setError(actionResult.error ?? "An unknown error occurred while generating highlights.");
+        setErrorDetails(actionResult.details);
+      }
+
+    } catch (e) {
+      console.error("Form submission error:", e);
+      setError("An unexpected error occurred. Please check the console for details.");
+      if (e instanceof Error) {
+        setErrorDetails(e.message);
+      }
+    } finally {
+        setLoading(false);
     }
-
-    const { title, audioUrl } = podcastInfoResult.data;
-    setAudioUrl(audioUrl);
-    
-    // 2. Generate highlights
-    const actionResult = await generateHighlightsAction(title, audioUrl, data.interests);
-    setResult(actionResult);
-    
-    if(!actionResult.success) {
-      setError(actionResult.error ?? "An unknown error occurred while generating highlights.");
-    }
-
-    setLoading(false);
   };
 
   const currentError = error || result?.error;
@@ -101,8 +111,12 @@ export default function Home() {
               )}
               {currentError && (
                  <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 text-center text-destructive">
-                   <p className="font-medium">An error occurred:</p>
-                   <p>{currentError}</p>
+                   <p className="font-medium">{currentError}</p>
+                   {errorDetails && (
+                      <pre className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground bg-secondary p-2 rounded">
+                        {JSON.stringify(errorDetails, null, 2)}
+                      </pre>
+                   )}
                  </div>
               )}
             </div>

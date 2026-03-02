@@ -1,125 +1,138 @@
 "use server";
 
-import {
-  podcastHighlightIdentification,
-  type PodcastHighlightIdentificationInput,
-  type PodcastHighlightIdentificationOutput,
+import { createClient } from "@deepgram/sdk";
+import Parser from "rss-parser";
+import { 
+  podcastHighlightIdentification, 
+  type PodcastHighlightIdentificationOutput 
 } from "@/ai/flows/podcast-highlight-identification";
-import { transcribePodcast } from "@/ai/flows/podcast-transcription";
-import { storage } from "@/lib/firebase";
-import { ref, uploadBytes, deleteObject } from "firebase/storage";
-import { z } from "zod";
-import Parser from 'rss-parser';
-import { v4 as uuidv4 } from 'uuid';
 
-const interestsSchema = z.array(z.string());
-const rssUrlSchema = z.string().url();
-
+const DEEPGRAM_SECRET = process.env.DEEPGRAM_SECRET;
 const parser = new Parser();
 
+type ActionResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+  details?: any;
+};
+
+// Helper to format seconds into HH:MM:SS string
+const formatTime = (seconds: number): string => {
+    const date = new Date(0);
+    date.setSeconds(seconds);
+    return date.toISOString().substr(11, 8);
+}
+
+/**
+ * Fetches and parses an RSS feed to get information about the latest podcast episode.
+ */
 export async function getPodcastInfoFromRss(
   rssUrl: string
-): Promise<{ success: boolean; data?: { title: string; audioUrl: string }; error?: string }> {
+): Promise<ActionResponse<{ audioUrl: string; title: string | undefined; description: string | undefined;}>> {
   try {
-    rssUrlSchema.parse(rssUrl);
-
     const feed = await parser.parseURL(rssUrl);
+    const latestEpisode = feed.items[0];
 
-    const title = feed.title;
-    if (!title) {
-      return { success: false, error: "Could not find a title in the RSS feed." };
-    }
-
-    const latestItem = feed.items[0];
-    const audioUrl = latestItem?.enclosure?.url;
-
-    if (!audioUrl || !latestItem.enclosure?.type?.startsWith('audio')) {
-      return { success: false, error: "Could not find a valid audio file in the latest episode of the RSS feed." };
+    if (!latestEpisode || !latestEpisode.enclosure?.url) {
+      return {
+        success: false,
+        error: "No audio URL found in the latest episode of the RSS feed.",
+      };
     }
 
     return {
       success: true,
       data: {
-        title: title,
-        audioUrl: audioUrl,
+        audioUrl: latestEpisode.enclosure.url,
+        title: latestEpisode.title,
+        description:
+          latestEpisode.itunes?.subtitle || latestEpisode.contentSnippet,
       },
     };
   } catch (error) {
-    console.error("RSS parsing error:", error);
-    if (error instanceof z.ZodError) {
-        return { success: false, error: "Invalid RSS feed URL." };
-    }
-    return { success: false, error: "Failed to parse the RSS feed. Please check the URL and ensure it's a valid podcast feed." };
+    console.error("Error parsing RSS feed:", error);
+    return {
+      success: false,
+      error: "Failed to parse RSS feed. Please check the URL.",
+    };
   }
 }
 
-
+/**
+ * The main server action to generate podcast highlights.
+ */
 export async function generateHighlightsAction(
-  podcastTitle: string,
-  audioUrl: string,
-  interestsJson: string
-): Promise<{ success: boolean; data?: PodcastHighlightIdentificationOutput; error?: string }> {
-  let storageRef;
-  try {
-    // 1. Parse and validate interests
-    let interests: string[];
-    try {
-      const parsedInterests = JSON.parse(interestsJson);
-      interests = interestsSchema.parse(parsedInterests);
-    } catch (e) {
-      console.error("Interest parsing error:", e);
-      return { success: false, error: "Invalid JSON format for interests. Please provide an array of strings." };
-    }
-
-    // 2. Download audio and upload to Firebase Storage
-    const response = await fetch(audioUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch audio: ${response.statusText}`);
-    }
-    const audioBuffer = await response.arrayBuffer();
-    const fileExtension = audioUrl.split('.').pop()?.split('?')[0] || 'mp3';
-    const fileName = `uploads/${uuidv4()}.${fileExtension}`;
-    storageRef = ref(storage, fileName);
-    
-    // Note: This uploads the entire file at once. For very large files, a streaming upload
-    // might be necessary to avoid memory issues on the server.
-    await uploadBytes(storageRef, audioBuffer, { contentType: response.headers.get('content-type') || 'audio/mpeg' });
-    
-    // 3. Create GS URI and transcribe audio
-    const gsUri = `gs://${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/${fileName}`;
-    const transcript = await transcribePodcast({ gsUri });
-
-    if (!transcript || transcript.length === 0) {
-      return { success: false, error: "Audio transcription failed or returned an empty transcript." };
-    }
-
-    // 4. Prepare input for the highlight identification flow
-    const aiInput: PodcastHighlightIdentificationInput = {
-      podcastTitle,
-      transcript: transcript,
-      interests: interests,
+  rssUrl: string,
+  interests: string[]
+): Promise<ActionResponse<PodcastHighlightIdentificationOutput>> {
+  if (!DEEPGRAM_SECRET) {
+    console.error("DEEPGRAM_SECRET not set");
+    return {
+      success: false,
+      error: "Server configuration error: Deepgram API key is not set.",
     };
+  }
 
-    // 5. Call the highlight identification flow
-    const highlights = await podcastHighlightIdentification(aiInput);
+  try {
+    // 1. Get podcast metadata from the RSS feed.
+    const feed = await parser.parseURL(rssUrl);
+    const latestEpisode = feed.items[0];
+    const podcastUrl = latestEpisode?.enclosure?.url;
+    const podcastTitle = latestEpisode?.title;
 
-    if (!highlights) {
-       return { success: false, error: "The AI model did not return a valid response for highlight generation." };
+    if (!podcastUrl || !podcastTitle) {
+      return {
+        success: false,
+        error: "Could not find an audio URL or title in the RSS feed.",
+      };
+    }
+
+    // 2. Transcribe the audio using Deepgram.
+    const deepgram = createClient(DEEPGRAM_SECRET);
+    const { result, error: deepgramError } =
+      await deepgram.listen.prerecorded.transcribeUrl(
+        { url: podcastUrl },
+        {
+          model: "nova-2",
+          smart_format: true,
+          utterances: true,
+        }
+      );
+
+    if (deepgramError) {
+      console.error("Deepgram transcription error:", deepgramError);
+      return {
+        success: false,
+        error: `Audio transcription failed: ${deepgramError.message}`,
+      };
     }
     
-    // 6. Return the successful result
-    return { success: true, data: highlights };
-  } catch (error) {
-    console.error("AI flow error:", error);
-    return { success: false, error: "An unexpected error occurred while generating highlights." };
-  } finally {
-    // 7. Clean up the uploaded file from storage
-    if (storageRef) {
-      try {
-        await deleteObject(storageRef);
-      } catch (cleanupError) {
-        console.error("Failed to cleanup audio file from storage:", cleanupError);
-      }
+    if (!result?.results?.utterances) {
+        return { success: false, error: "Transcription result is empty or did not contain utterances." };
     }
+
+    // 3. Format the Deepgram utterances into the structure the AI flow expects.
+    const transcriptForAI = result.results.utterances.map(utt => ({
+        text: utt.transcript,
+        startTime: formatTime(utt.start),
+        endTime: formatTime(utt.end),
+    }));
+
+    // 4. Run the AI flow to identify highlights.
+    const llmResponse = await podcastHighlightIdentification({
+        podcastTitle: podcastTitle,
+        transcript: transcriptForAI,
+        interests: interests,
+    });
+
+    return { success: true, data: llmResponse };
+  } catch (err: any) {
+    console.error("Generate Highlights Action Error:", err);
+    return {
+      success: false,
+      error: "An unexpected error occurred while generating highlights.",
+      details: err.message,
+    };
   }
 }
