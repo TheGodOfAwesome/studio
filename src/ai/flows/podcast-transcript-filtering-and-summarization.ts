@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview This file defines a Genkit flow for filtering podcast transcripts
  * based on user interests, summarizing relevant content, and identifying

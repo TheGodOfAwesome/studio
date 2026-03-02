@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview Transcribes a podcast audio file from Google Cloud Storage.
  *

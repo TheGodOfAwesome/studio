@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview Identifies 1 to 7 of the most engaging segments in a podcast transcript based on user interests.
  *
