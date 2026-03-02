@@ -8,6 +8,7 @@ import {
 } from "@/ai/flows/podcast-highlight-identification";
 
 const DEEPGRAM_SECRET = process.env.DEEPGRAM_SECRET;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 const parser = new Parser();
 
 type ActionResponse<T> = {
@@ -66,11 +67,19 @@ export async function generateHighlightsAction(
   rssUrl: string,
   interests: string[]
 ): Promise<ActionResponse<PodcastHighlightIdentificationOutput>> {
-  if (!DEEPGRAM_SECRET) {
-    console.error("DEEPGRAM_SECRET not set");
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_API_KEY_HERE") {
+    console.error("GEMINI_API_KEY not set or is placeholder");
     return {
       success: false,
-      error: "Server configuration error: Deepgram API key is not set.",
+      error: "Server configuration error: Gemini API key is not set. Please add it to your .env file.",
+    };
+  }
+  
+  if (!DEEPGRAM_SECRET || DEEPGRAM_SECRET === "YOUR_API_KEY_HERE") {
+    console.error("DEEPGRAM_SECRET not set or is placeholder");
+    return {
+      success: false,
+      error: "Server configuration error: Deepgram API key is not set. Please add it to your .env file.",
     };
   }
 
