@@ -73,7 +73,19 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("API error:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    return NextResponse.json({ success: false, error: "An internal server error occurred.", details: errorMessage }, { status: 500 });
+    
+    let displayError = "An unexpected error occurred while generating highlights.";
+    if (error instanceof Error) {
+        if (error.message.includes('transcribe')) {
+            displayError = "Failed to transcribe the podcast audio. Please check the audio file and try again.";
+        } else if (error.message.includes('podcast info')) {
+            displayError = "Failed to retrieve podcast information from the RSS feed. Please check the URL and try again.";
+        } else if (error.message.includes('AI model')) {
+            displayError = "The AI model failed to generate highlights. Please try again later.";
+        }
+    }
+    
+    return NextResponse.json({ success: false, error: displayError, details: errorMessage }, { status: 500 });
   } finally {
     // 7. Clean up the uploaded file from storage
     if (storageRef) {
